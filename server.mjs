@@ -46,18 +46,14 @@ app.get("/favicon.ico", (rq, rs) => {
 });
 
 app.get("/viewlog", async (rq, rs, next) => {
-  try {
-    if (
-      rq.header("authdata") !== undefined &&
-      process.env.AUTHDATA !== undefined &&
-      rq.headers.authdata === process.env.AUTHDATA
-    ) {
-      return rs.sendFile("log.txt", { root: currentDir });
-    }
-    throw new Error();
-  } catch (e) {
-    next();
+  if (
+    rq.header("authdata") !== undefined &&
+    process.env.AUTHDATA !== undefined &&
+    rq.headers.authdata === process.env.AUTHDATA
+  ) {
+    return rs.sendFile("log.txt", { root: currentDir });
   }
+  next();
 });
 
 app.get("*", (rq, rs, next) => {
