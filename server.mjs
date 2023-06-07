@@ -70,13 +70,16 @@ app.get("*", (rq, rs, next) => {
           rs.setHeader("Content-Type", "image");
           rs.setHeader("Content-Length", imageData.length);
           rs.send(imageData);
+        })
+        .catch((e) => {
+          e.url = rq.url;
+          next(e);
         });
     } else {
       rs.sendFile(pathImage, { root: currentDir });
     }
     logger(`url: "${rq.url}" || ${rq.ip}`);
   } catch (e) {
-    e.status = 204;
     e.url = rq.url;
     next(e);
   }
