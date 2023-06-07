@@ -2,4 +2,4 @@
 .env
 log.txt
 pnpm-lock.yaml
-/src/image.jpg
+/src/image.*
