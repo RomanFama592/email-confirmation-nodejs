@@ -19,8 +19,9 @@ function saveInTxt(data) {
 
 export default function logger(...output) {
   let msg = formaterTime(new Date()) + " => " + output.join();
-  //msg =  msg + "\n" + "-".repeat(msg.length)
-
-  console.log(msg);
+  
   saveInTxt(msg);
+  
+  msg =  msg + "\n" + "-".repeat(msg.length)
+  console.log(msg);
 }
