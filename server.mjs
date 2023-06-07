@@ -18,10 +18,26 @@ app.get("/favicon.ico", (rq, rs) => {
   rs.sendStatus(204);
 });
 
+app.get("/viewlog", async (rq, rs, next) => {
+  try {
+    if (
+      rq.header("authdata") !== undefined &&
+      process.env.AUTHDATA !== undefined &&
+      rq.headers.authdata === process.env.AUTHDATA
+    ) {
+      return rs.sendFile("log.txt", { root: currentDir });
+    }
+    throw new Error();
+  } catch (e) {
+    next();
+  }
+});
+
 app.get("*", (rq, rs, next) => {
   try {
+    //TODO: cargar imagen desde un link subido por variable de entorno
     rs.sendFile(path.join("src", "image.jpg"), { root: currentDir });
-    logger(`"${rq.url}"`);
+    logger(`url: "${rq.url}" || ${rq.ip}`);
   } catch (e) {
     e.status = 204;
     e.url = rq.url;
