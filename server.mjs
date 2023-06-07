@@ -13,27 +13,14 @@ dotenv.config();
 const pathImage = path.join("src", "image.png");
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
-try {
-  if (!existsSync(pathImage)) {
-    throw new Error();
-  }
-} catch (e) {
-  const image = sharp({
-    create: {
-      width: 1,
-      height: 1,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  });
-  image.toFile(pathImage, (err, info) => {
-    if (err) {
-      console.error(err);
-    } else {
-      console.log("created image:", info);
-    }
-  });
-}
+const imageDefault = await sharp({
+  create: {
+    width: 1,
+    height: 1,
+    channels: 4,
+    background: { r: 0, g: 0, b: 0, alpha: 0 },
+  },
+}).toBuffer();
 
 const app = express();
 
@@ -47,8 +34,8 @@ app.get("/favicon.ico", (rq, rs) => {
 
 app.get("/viewlog", async (rq, rs, next) => {
   if (
-    rq.header("authdata") !== undefined &&
-    process.env.AUTHDATA !== undefined &&
+    rq.header("authdata") !== (undefined || "") &&
+    process.env.AUTHDATA !== (undefined || "") &&
     rq.headers.authdata === process.env.AUTHDATA
   ) {
     return rs.sendFile("log.txt", { root: currentDir });
@@ -58,11 +45,13 @@ app.get("/viewlog", async (rq, rs, next) => {
 
 app.get("*", (rq, rs, next) => {
   try {
+    logger(`url: "${rq.url}" || ${rq.ip}`);
     if (process.env.IMAGELINK) {
       axios
         .get(process.env.IMAGELINK, { responseType: "arraybuffer" })
         .then((rss) => {
           const imageData = Buffer.from(rss.data, "binary");
+          sharp(input=imageData)
           rs.setHeader("Content-Type", "image");
           rs.setHeader("Content-Length", imageData.length);
           rs.send(imageData);
@@ -72,19 +61,21 @@ app.get("*", (rq, rs, next) => {
           next(e);
         });
     } else {
-      rs.sendFile(pathImage, { root: currentDir });
+      throw new Error("!");
     }
-    logger(`url: "${rq.url}" || ${rq.ip}`);
   } catch (e) {
     e.url = rq.url;
     next(e);
   }
 });
 
-app.use((err, rq, rs, next) => {
+app.use(async (err, rq, rs, next) => {
   logger(`ERROR in "${err.url}": ${err}`);
   console.log(err.stack);
-  rs.sendFile(pathImage, { root: currentDir });
+  rs.setHeader("Content-Type", "image");
+  rs.setHeader("Content-Length", imageDefault.length);
+
+  rs.send(imageDefault);
 });
 
 app.listen(app.get("port"), () => {
