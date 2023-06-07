@@ -24,12 +24,14 @@ const imageDefault = await sharp({
 
 const app = express();
 
+app.set("trust proxy", true);
+
 app.set("port", process.env.PORT || 8080);
 
 app.use(cors());
 
 app.get("/favicon.ico", (rq, rs) => {
-  rs.sendStatus(204);
+  return rs.sendStatus(204);
 });
 
 app.get("/viewlog", async (rq, rs, next) => {
@@ -43,39 +45,35 @@ app.get("/viewlog", async (rq, rs, next) => {
   next();
 });
 
-app.get("*", (rq, rs, next) => {
+app.get("*", async (rq, rs, next) => {
   try {
     logger(`url: "${rq.url}" || ${rq.ip}`);
+
     if (process.env.IMAGELINK) {
-      axios
-        .get(process.env.IMAGELINK, { responseType: "arraybuffer" })
-        .then((rss) => {
-          const imageData = Buffer.from(rss.data, "binary");
-          sharp(input=imageData)
-          rs.setHeader("Content-Type", "image");
-          rs.setHeader("Content-Length", imageData.length);
-          rs.send(imageData);
-        })
-        .catch((e) => {
-          e.url = rq.url;
-          next(e);
-        });
+      const rss = await axios.get(process.env.IMAGELINK, {
+        responseType: "arraybuffer",
+      });
+      const imageData = Buffer.from(rss.data, "binary");
+      //sharp((input = imageData));
+      rs.setHeader("Content-Type", "image/jpeg");
+      rs.setHeader("Content-Length", imageData.length);
+      return rs.send(imageData);
+    } else if (existsSync(pathImage)) {
+      return rs.sendFile(pathImage, { root: currentDir });
     } else {
       throw new Error("!");
     }
   } catch (e) {
-    e.url = rq.url;
     next(e);
   }
 });
 
-app.use(async (err, rq, rs, next) => {
-  logger(`ERROR in "${err.url}": ${err}`);
+app.use((err, rq, rs, next) => {
+  logger(`ERROR in "${rq.url}": ${err}`);
   console.log(err.stack);
-  rs.setHeader("Content-Type", "image");
+  rs.setHeader("Content-Type", "image/png");
   rs.setHeader("Content-Length", imageDefault.length);
-
-  rs.send(imageDefault);
+  return rs.send(imageDefault);
 });
 
 app.listen(app.get("port"), () => {
