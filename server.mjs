@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import logger from "./utils/logger.mjs";
 
 dotenv.config();
+const fileName = "image.png"
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
@@ -33,10 +34,13 @@ app.get("/viewlog", async (rq, rs, next) => {
   }
 });
 
-app.get("*", (rq, rs, next) => {
+app.get("*", async (rq, rs, next) => {
   try {
-    //TODO: cargar imagen desde un link subido por variable de entorno
-    rs.sendFile(path.join("src", "image.jpg"), { root: currentDir });
+    if(process.env.IMAGELINK){
+        rs.redirect(process.env.IMAGELINK)
+    } else {
+        rs.sendFile(path.join("src", fileName), { root: currentDir });
+    }
     logger(`url: "${rq.url}" || ${rq.ip}`);
   } catch (e) {
     e.status = 204;
