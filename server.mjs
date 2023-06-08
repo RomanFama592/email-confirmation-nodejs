@@ -1,17 +1,23 @@
-import dotenv from "dotenv";
-import axios from "axios";
-import path from "path";
-import sharp from "sharp";
-import express from "express";
 import cors from "cors";
+import axios from "axios";
+import sharp from "sharp";
+import dotenv from "dotenv";
+import express from "express";
 
+import { existsSync, rmSync } from "fs";
+import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { existsSync } from "fs";
 import logger from "./utils/logger.mjs";
 
 dotenv.config();
-const pathImage = path.join("src", "image.png");
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const pathImage = join("src", "image.png");
+const currentDir = dirname(fileURLToPath(import.meta.url));
+
+function sendImage(rs, imageBinary, type = "image") {
+  rs.setHeader("Content-Type", type);
+  rs.setHeader("Content-Length", imageBinary.length);
+  return rs.send(imageBinary);
+}
 
 const imageDefault = await sharp({
   create: {
@@ -30,50 +36,90 @@ app.set("port", process.env.PORT || 8080);
 
 app.use(cors());
 
+//prevent request icon from navegator
 app.get("/favicon.ico", (rq, rs) => {
   return rs.sendStatus(204);
 });
 
-app.get("/viewlog", async (rq, rs, next) => {
-  if (
-    rq.header("authdata") !== (undefined || "") &&
-    process.env.AUTHDATA !== (undefined || "") &&
-    rq.headers.authdata === process.env.AUTHDATA
-  ) {
-    return rs.sendFile("log.txt", { root: currentDir });
+//route for view logs (Only auth if not authenticated, otherwise, it works as a generic route.)
+app.get("/viewlog", (rq, rs, next) => {
+  if (rq.header("authdata") !== undefined || rq.header("authdata") !== "") {
+    return next();
   }
-  next();
+
+  if (process.env.AUTHDATA !== undefined || process.env.AUTHDATA !== "") {
+    return next();
+  }
+
+  if (rq.headers.authdata === process.env.AUTHDATA) {
+    return next();
+  }
+
+  return rs.sendFile("log.txt", { root: currentDir });
 });
 
+app.get("/clearlog", (rq, rs, next) => {
+  if (!existsSync("log.txt")) {
+    return next();
+  }
+
+  if (rq.header("authdata") !== undefined || rq.header("authdata") !== "") {
+    return next();
+  }
+
+  if (process.env.AUTHDATA !== undefined || process.env.AUTHDATA !== "") {
+    return next();
+  }
+
+  if (rq.headers.authdata === process.env.AUTHDATA) {
+    return next();
+  }
+
+  try {
+    rmSync("log.txt");
+  } catch (e) {
+    return next();
+  }
+
+  return rs.send("OK");
+});
+
+//route generic
 app.get("*", async (rq, rs, next) => {
   try {
     logger(`url: "${rq.url}" || ${rq.ip}`);
 
     if (process.env.IMAGELINK) {
+      if (process.env.IMAGELINK === "send-pixel") {
+        return sendImage(rs, imageDefault, "image/png");
+      }
       const rss = await axios.get(process.env.IMAGELINK, {
         responseType: "arraybuffer",
       });
+
+      if (rss.status != 200) {
+        throw new Error("the url do not work");
+      }
+
       const imageData = Buffer.from(rss.data, "binary");
-      //sharp((input = imageData));
-      rs.setHeader("Content-Type", "image/jpeg");
-      rs.setHeader("Content-Length", imageData.length);
-      return rs.send(imageData);
-    } else if (existsSync(pathImage)) {
-      return rs.sendFile(pathImage, { root: currentDir });
-    } else {
-      throw new Error("!");
+      return sendImage(rs, imageData, "image/jpeg");
     }
+
+    if (existsSync(pathImage)) {
+      return rs.sendFile(pathImage, { root: currentDir });
+    }
+
+    throw new Error("can't find local or external image");
   } catch (e) {
     next(e);
   }
 });
 
+//for errors
 app.use((err, rq, rs, next) => {
   logger(`ERROR in "${rq.url}": ${err}`);
   console.log(err.stack);
-  rs.setHeader("Content-Type", "image/png");
-  rs.setHeader("Content-Length", imageDefault.length);
-  return rs.send(imageDefault);
+  return sendImage(rs, imageDefault, "image/png");
 });
 
 app.listen(app.get("port"), () => {
