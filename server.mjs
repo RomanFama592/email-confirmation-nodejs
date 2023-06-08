@@ -4,8 +4,8 @@ import sharp from "sharp";
 import dotenv from "dotenv";
 import express from "express";
 
-import { existsSync } from "fs";
-import {join, dirname} from "path";
+import { existsSync, rmSync } from "fs";
+import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import logger from "./utils/logger.mjs";
 
@@ -42,7 +42,7 @@ app.get("/favicon.ico", (rq, rs) => {
 });
 
 //route for view logs (Only auth if not authenticated, otherwise, it works as a generic route.)
-app.get("/viewlog", async (rq, rs, next) => {
+app.get("/viewlog", (rq, rs, next) => {
   if (rq.header("authdata") !== undefined || rq.header("authdata") !== "") {
     return next();
   }
@@ -56,6 +56,32 @@ app.get("/viewlog", async (rq, rs, next) => {
   }
 
   return rs.sendFile("log.txt", { root: currentDir });
+});
+
+app.get("/clearlog", (rq, rs, next) => {
+  if (!existsSync("log.txt")) {
+    return next();
+  }
+
+  if (rq.header("authdata") !== undefined || rq.header("authdata") !== "") {
+    return next();
+  }
+
+  if (process.env.AUTHDATA !== undefined || process.env.AUTHDATA !== "") {
+    return next();
+  }
+
+  if (rq.headers.authdata === process.env.AUTHDATA) {
+    return next();
+  }
+
+  try {
+    rmSync("log.txt");
+  } catch (e) {
+    return next();
+  }
+
+  return rs.send("OK");
 });
 
 //route generic
