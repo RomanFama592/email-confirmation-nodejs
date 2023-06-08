@@ -18,7 +18,7 @@ function saveInTxt(data) {
 }
 
 export default function logger(...output) {
-  let msg = formaterTime(new Date()) + " => " + output.join();
+  let msg = formaterTime(new Date()) + " || " + output.join();
   
   saveInTxt(msg);
   

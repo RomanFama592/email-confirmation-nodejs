@@ -43,42 +43,47 @@ app.get("/favicon.ico", (rq, rs) => {
 
 //route for view logs (Only auth if not authenticated, otherwise, it works as a generic route.)
 app.get("/viewlog", (rq, rs, next) => {
-  if (rq.header("authdata") !== undefined || rq.header("authdata") !== "") {
+  if (rq.header("authdata") === undefined || rq.header("authdata") === "") {
     return next();
   }
 
-  if (process.env.AUTHDATA !== undefined || process.env.AUTHDATA !== "") {
+  if (process.env.AUTHDATA === undefined || process.env.AUTHDATA === "") {
     return next();
   }
 
-  if (rq.headers.authdata === process.env.AUTHDATA) {
+  if (rq.headers.authdata !== process.env.AUTHDATA) {
     return next();
+  }
+
+  if (!existsSync("log.txt")) {
+    return rs.send("No records");
   }
 
   return rs.sendFile("log.txt", { root: currentDir });
 });
 
+//remove txt of logs
 app.get("/clearlog", (rq, rs, next) => {
+  if (rq.header("authdata") === undefined || rq.header("authdata") === "") {
+    return next();
+  }
+
+  if (process.env.AUTHDATA === undefined || process.env.AUTHDATA === "") {
+    return next();
+  }
+
+  if (rq.headers.authdata !== process.env.AUTHDATA) {
+    return next();
+  }
+
   if (!existsSync("log.txt")) {
-    return next();
-  }
-
-  if (rq.header("authdata") !== undefined || rq.header("authdata") !== "") {
-    return next();
-  }
-
-  if (process.env.AUTHDATA !== undefined || process.env.AUTHDATA !== "") {
-    return next();
-  }
-
-  if (rq.headers.authdata === process.env.AUTHDATA) {
-    return next();
+    return rs.send("No records");
   }
 
   try {
     rmSync("log.txt");
   } catch (e) {
-    return next();
+    return rs.send(e);
   }
 
   return rs.send("OK");
@@ -87,12 +92,13 @@ app.get("/clearlog", (rq, rs, next) => {
 //route generic
 app.get("*", async (rq, rs, next) => {
   try {
-    logger(`url: "${rq.url}" || ${rq.ip}`);
+    logger(`${rq.ip} => "${rq.url}"`);
 
-    if (process.env.IMAGELINK) {
-      if (process.env.IMAGELINK === "send-pixel") {
-        return sendImage(rs, imageDefault, "image/png");
-      }
+    if (process.env.IMAGELINK === "send-pixel") {
+      return sendImage(rs, imageDefault, "image/png");
+    }
+
+    if (process.env.IMAGELINK !== undefined && process.env.IMAGELINK !== "") {
       const rss = await axios.get(process.env.IMAGELINK, {
         responseType: "arraybuffer",
       });
@@ -106,10 +112,10 @@ app.get("*", async (rq, rs, next) => {
     }
 
     if (existsSync(pathImage)) {
-      return rs.sendFile(pathImage, { root: currentDir });
+      throw new Error("can't find local or external image");
     }
 
-    throw new Error("can't find local or external image");
+    return rs.sendFile(pathImage, { root: currentDir });
   } catch (e) {
     next(e);
   }
