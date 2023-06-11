@@ -36,6 +36,10 @@ app.set("port", process.env.PORT || 8080);
 
 app.use(cors());
 
+app.get("/isAlive", (rq, rs) => {
+  return rs.send("ok");
+});
+
 //prevent request icon from navegator
 app.get("/favicon.ico", (rq, rs) => {
   return rs.sendStatus(204);
