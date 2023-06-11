@@ -134,4 +134,20 @@ app.use((err, rq, rs, next) => {
 
 app.listen(app.get("port"), () => {
   logger(`##Server running in http://localhost:${app.get("port")}/`);
+
+  //prevent sleep for free sites hosting with hibernate page
+  if (process.env.PREVENTSLEEP) {
+    const options = {
+      method: "GET",
+      headers: { authdata: process.env.AUTHDATA },
+    };
+
+    const time = !isNaN(Number(process.env.TIMEFORPREVENTSLEEP))
+      ? Number(process.env.TIMEFORPREVENTSLEEP)
+      : 5000;
+
+    setInterval(() => {
+      fetch(`${process.env.URLSERVER}/`, options);
+    }, time);
+  }
 });
