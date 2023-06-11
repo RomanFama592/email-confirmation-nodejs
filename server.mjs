@@ -1,4 +1,5 @@
 import cors from "cors";
+import axios from "axios";
 import sharp from "sharp";
 import dotenv from "dotenv";
 import express from "express";
@@ -103,7 +104,7 @@ app.get("*", async (rq, rs, next) => {
 
     if (process.env.IMAGELINK !== undefined && process.env.IMAGELINK !== "") {
       let throwError = false;
-      fetch(process.env.IMAGELINK)
+      axios.get(process.env.IMAGELINK)
         .then((rss) => {
           if (rss.status != 200) {
             throwError = true;
@@ -146,7 +147,7 @@ app.listen(app.get("port"), () => {
 
     setInterval(() => {
       //not working to call itself directly
-      fetch(`${process.env.URLSERVER}/isAlive`);
+      axios.get(`${process.env.URLSERVER}/isAlive`);
     }, time);
   }
 });
