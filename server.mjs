@@ -1,5 +1,4 @@
 import cors from "cors";
-import axios from "axios";
 import sharp from "sharp";
 import dotenv from "dotenv";
 import express from "express";
@@ -35,6 +34,10 @@ app.set("trust proxy", true);
 app.set("port", process.env.PORT || 8080);
 
 app.use(cors());
+
+app.get("/isAlive", (rq, rs) => {
+  return rs.send("ok");
+});
 
 //prevent request icon from navegator
 app.get("/favicon.ico", (rq, rs) => {
@@ -99,19 +102,23 @@ app.get("*", async (rq, rs, next) => {
     }
 
     if (process.env.IMAGELINK !== undefined && process.env.IMAGELINK !== "") {
-      const rss = await axios.get(process.env.IMAGELINK, {
-        responseType: "arraybuffer",
-      });
+      let throwError = false;
+      fetch(process.env.IMAGELINK)
+        .then((rss) => {
+          if (rss.status != 200) {
+            throwError = true;
+          }
+        })
+        .catch((e) => {
+          throwError = true;
+        });
 
-      if (rss.status != 200) {
-        throw new Error("the url do not work");
-      }
+      if (throwError) throw new Error("the url do not work");
 
-      const imageData = Buffer.from(rss.data, "binary");
-      return sendImage(rs, imageData, "image/jpeg");
+      return rs.redirect(process.env.IMAGELINK);
     }
 
-    if (existsSync(pathImage)) {
+    if (!existsSync(pathImage)) {
       throw new Error("can't find local or external image");
     }
 
@@ -130,4 +137,16 @@ app.use((err, rq, rs, next) => {
 
 app.listen(app.get("port"), () => {
   logger(`##Server running in http://localhost:${app.get("port")}/`);
+
+  //prevent sleep for free sites hosting with hibernate page
+  if (process.env.PREVENTSLEEP) {
+    const time = !isNaN(Number(process.env.TIMEFORPREVENTSLEEP))
+      ? Number(process.env.TIMEFORPREVENTSLEEP)
+      : 5000;
+
+    setInterval(() => {
+      //not working to call itself directly
+      fetch(`${process.env.URLSERVER}/isAlive`);
+    }, time);
+  }
 });
